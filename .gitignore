@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Build / IDE
+dist/
+build/
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# OneDrive / OS
+~$*
