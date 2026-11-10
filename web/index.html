@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LandIS Assistant</title>
+  <link rel="stylesheet" href="chat.css?v=20261030c">
+</head>
+<body class="chat-page">
+  <div class="chat-shell">
+    <header class="chat-header">
+      <div class="chat-header__brand">
+        <img class="chat-header__logo" src="landis-wordmark.svg" alt="LandIS" width="168" height="42">
+        <div>
+          <h1>LandIS Assistant</h1>
+          <p class="chat-header__tagline">Soil data for England and Wales</p>
+        </div>
+      </div>
+      <button type="button" id="new-chat-btn" class="chat-header__action" title="Start a new conversation">
+        New chat
+      </button>
+    </header>
+
+    <main class="chat-main">
+      <div id="welcome" class="welcome">
+        <p class="welcome__intro">
+          I answer from curated LandIS documents and cite the page I used.
+          I cannot tell you the soil at a particular place — use the portal map for that.
+          Choose a starter question or type your own.
+        </p>
+        <div id="starter-prompts" class="starter-prompts" role="list"></div>
+      </div>
+
+      <div id="messages" class="messages" aria-live="polite"></div>
+    </main>
+
+    <footer class="chat-footer">
+      <form id="chat-form" class="chat-form">
+        <input
+          id="message-input"
+          type="text"
+          placeholder="Ask about soil data, classification, or the portal…"
+          autocomplete="off"
+          required
+        >
+        <button type="submit" aria-label="Send message">
+          <span aria-hidden="true">↑</span>
+        </button>
+      </form>
+      <p class="chat-footer__disclaimer">
+        AI can be wrong. Check important points against the cited document.
+        Questions are stored to improve the service and are processed by Mistral AI.
+        Do not enter personal data.
+        <a href="privacy.html">Privacy notice</a>
+      </p>
+      <p id="status" class="chat-footer__status"></p>
+    </footer>
+  </div>
+
+  <script src="chat.js?v=20261030c"></script>
+</body>
+</html>

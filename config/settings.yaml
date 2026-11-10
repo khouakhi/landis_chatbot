@@ -1,0 +1,57 @@
+# LandIS assistant settings. Secrets stay in .env (never commit that file).
+# Paths are relative to the code repository root unless absolute.
+
+kb_version: "0.1"
+knowledge_base: "../knowledge-base"
+portal_map_url: "https://www.landis.org.uk/soilscapes/"
+
+ocr:
+  # Pin a dated model here after the pilot, in place of the floating alias.
+  model: mistral-ocr-latest
+  table_format: html
+  extract_header: true
+  extract_footer: true
+  include_blocks: true
+  confidence_scores_granularity: word
+  include_image_base64: false
+  # USD per page, Mistral list prices, October 2026. Used only for the run log.
+  batch_usd_per_page: 0.002
+  standard_usd_per_page: 0.004
+
+qa:
+  low_confidence: 0.6
+  max_low_confidence_words: 5
+  near_empty_words: 8
+
+chunking:
+  target_min_words: 300
+  target_max_words: 800
+  fallback_words: 500
+  overlap_words: 100
+
+embedding:
+  model: mistral-embed
+  dimension: 1024
+  batch_size: 32
+
+chat:
+  # Pin a dated chat model before operational deployment if answers must stay stable.
+  model: mistral-small-latest
+  temperature: 0.2
+
+rag:
+  top_k: 8
+  mmr_enabled: true
+  mmr_lambda: 0.58
+  mmr_fetch_mult: 3
+  mmr_fetch_cap: 40
+  rrf_k: 60
+
+logging:
+  conversations: true
+  retention_days: 365
+  history_enabled: true
+  history_turns: 3
+  history_max_answer_chars: 1500
+  history_expand_retrieval: true
+  history_retrieval_max_chars: 2000

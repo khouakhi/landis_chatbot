@@ -1,0 +1,33 @@
+[project]
+name = "landis-admin"
+version = "0.1.0"
+description = "LandIS corpus commands: register, OCR, metadata, and indexing"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "landis",
+]
+
+[project.scripts]
+landis-db-init = "db_init:main"
+landis-register = "register_cli:main"
+landis-ocr = "ocr_submit:main"
+landis-ocr-collect = "ocr_collect:main"
+landis-metadata = "metadata_cli:main"
+landis-process = "process_files:main"
+
+[tool.uv.sources]
+landis = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+only-include = [
+    "db_init.py",
+    "register_cli.py",
+    "ocr_submit.py",
+    "ocr_collect.py",
+    "metadata_cli.py",
+    "process_files.py",
+]

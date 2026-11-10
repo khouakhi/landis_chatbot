@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LandIS Assistant — privacy notice</title>
+  <link rel="stylesheet" href="chat.css?v=20261030c">
+  <style>
+    body.privacy-page {
+      margin: 0;
+      background: var(--landis-bg);
+      color: var(--landis-text);
+    }
+
+    .privacy-shell {
+      max-width: 720px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: #fff;
+      box-shadow: 0 0 0 1px var(--landis-border);
+      padding: 1.5rem 1.5rem 2.5rem;
+    }
+
+    .privacy-shell h1 {
+      margin: 0 0 0.25rem;
+      font-size: 1.35rem;
+      color: var(--landis-green);
+    }
+
+    .privacy-shell .updated {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--landis-muted);
+    }
+
+    .privacy-shell h2 {
+      margin: 1.5rem 0 0.5rem;
+      font-size: 1.05rem;
+      color: var(--landis-green-dark);
+    }
+
+    .privacy-shell p,
+    .privacy-shell li {
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    .privacy-shell a {
+      color: var(--landis-accent);
+    }
+
+    .privacy-back {
+      display: inline-block;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body class="privacy-page">
+  <article class="privacy-shell">
+    <header>
+      <h1>LandIS Assistant — privacy notice</h1>
+      <p class="updated">Last updated: 29 October 2026</p>
+    </header>
+
+    <h2>Who we are</h2>
+    <p>
+      This assistant is part of the LandIS work at Cranfield University for the
+      National Soil Data Portal for England and Wales. For privacy questions,
+      contact the LandIS team at Cranfield University.
+    </p>
+
+    <h2>What we collect</h2>
+    <p>When you use the assistant we store:</p>
+    <ul>
+      <li>the text of your questions and the assistant’s replies</li>
+      <li>the identifiers of the passages used in an answer</li>
+      <li>a random session id kept in this browser tab</li>
+      <li>the date and time of each message</li>
+    </ul>
+    <p>
+      We do not create user accounts. We do not store IP addresses or browser
+      user-agent strings. Please do not type personal data into the chat.
+    </p>
+
+    <h2>Why we process this data</h2>
+    <p>
+      We store questions and answers so the assistant can follow a short
+      conversation, and so the team can check whether answers are grounded in
+      the corpus.
+    </p>
+
+    <h2>Who processes your messages</h2>
+    <p>
+      Your question, and a few earlier turns when needed, are sent to Mistral AI
+      for OCR of the corpus, embeddings, and the written answer. The application
+      and database are hosted on Render.
+    </p>
+
+    <h2>How long we keep data</h2>
+    <p>
+      Chat records are kept for 12 months and then deleted. The session id in
+      your browser ends when you close the tab or start a new chat.
+    </p>
+
+    <a class="privacy-back" href="index.html">← Back to LandIS Assistant</a>
+  </article>
+</body>
+</html>
