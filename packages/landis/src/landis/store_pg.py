@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -279,6 +279,42 @@ def delete_conversations_older_than(days: int) -> int:
     deleted = int(cur.rowcount or 0)
     get_connection().commit()
     return deleted
+
+
+def get_daily_question_count(usage_date: date, visitor_key: str) -> int:
+    row = get_connection().execute(
+        """
+        SELECT question_count
+        FROM landis_daily_usage
+        WHERE usage_date = %s AND visitor_key = %s
+        """,
+        (usage_date, visitor_key),
+    ).fetchone()
+    return int(row["question_count"]) if row else 0
+
+
+def consume_daily_question(usage_date: date, visitor_key: str, limit: int) -> int | None:
+    """
+    Count one question if the visitor is under the daily limit.
+
+    Returns the new count, or None when the limit is already reached.
+    The check and the increment happen in one statement, so parallel requests
+    cannot overrun the limit.
+    """
+    conn = get_connection()
+    row = conn.execute(
+        """
+        INSERT INTO landis_daily_usage (usage_date, visitor_key, question_count)
+        VALUES (%(usage_date)s, %(visitor_key)s, 1)
+        ON CONFLICT (usage_date, visitor_key) DO UPDATE
+            SET question_count = landis_daily_usage.question_count + 1
+            WHERE landis_daily_usage.question_count < %(limit)s
+        RETURNING question_count
+        """,
+        {"usage_date": usage_date, "visitor_key": visitor_key, "limit": int(limit)},
+    ).fetchone()
+    conn.commit()
+    return int(row["question_count"]) if row else None
 
 
 def fetch_recent_turns(thread_id: str, limit: int) -> list[dict[str, str]]:

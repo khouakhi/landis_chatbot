@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LandIS Assistant</title>
-  <link rel="stylesheet" href="chat.css?v=20261030c">
+  <link rel="stylesheet" href="chat.css?v=20261122a">
 </head>
 <body class="chat-page">
   <div class="chat-shell">
@@ -13,19 +13,26 @@
         <img class="chat-header__logo" src="landis-wordmark.svg" alt="LandIS" width="168" height="42">
         <div>
           <h1>LandIS Assistant</h1>
-          <p class="chat-header__tagline">Soil data for England and Wales</p>
+          <p class="chat-header__tagline" data-i18n="header.tagline">Soil data for England and Wales</p>
         </div>
       </div>
-      <button type="button" id="new-chat-btn" class="chat-header__action" title="Start a new conversation">
-        New chat
-      </button>
+      <div class="chat-header__actions">
+        <div class="lang-switch" role="group" aria-label="Language" data-i18n-aria="header.language">
+          <button type="button" class="lang-switch__btn" data-lang="en" aria-pressed="true">EN</button>
+          <span class="lang-switch__sep" aria-hidden="true">|</span>
+          <button type="button" class="lang-switch__btn" data-lang="cy" aria-pressed="false" lang="cy">CY</button>
+        </div>
+        <button type="button" id="new-chat-btn" class="chat-header__action" title="Start a new conversation" data-i18n="header.newChat" data-i18n-title="header.newChatTitle">
+          New chat
+        </button>
+      </div>
     </header>
 
     <main class="chat-main">
       <div id="welcome" class="welcome">
-        <p class="welcome__intro">
+        <p class="welcome__intro" data-i18n="welcome.intro">
           I answer from curated LandIS documents and cite the page I used.
-          I cannot tell you the soil at a particular place — use the portal map for that.
+          I cannot tell you the soil at a particular place. Use the portal map for that.
           Choose a starter question or type your own.
         </p>
         <div id="starter-prompts" class="starter-prompts" role="list"></div>
@@ -35,28 +42,45 @@
     </main>
 
     <footer class="chat-footer">
+      <div class="chat-controls">
+        <div class="chip-row" role="group" aria-labelledby="audience-label">
+          <span id="audience-label" class="chip-row__label" data-i18n="controls.audience">Audience</span>
+          <button type="button" class="chip chip--audience is-selected" aria-pressed="true" data-audience="general" data-i18n="audience.general" data-i18n-tip="audience.general.tip">General public</button>
+          <button type="button" class="chip chip--audience" aria-pressed="false" data-audience="manager" data-i18n="audience.manager" data-i18n-tip="audience.manager.tip">Land manager / adviser</button>
+          <button type="button" class="chip chip--audience" aria-pressed="false" data-audience="specialist" data-i18n="audience.specialist" data-i18n-tip="audience.specialist.tip">Soil specialist</button>
+        </div>
+        <div class="chip-row" role="group" aria-labelledby="format-label">
+          <span id="format-label" class="chip-row__label" data-i18n="controls.format">Format</span>
+          <button type="button" class="chip chip--tag" aria-pressed="false" data-format="short" data-i18n-tip="format.short.tip">#short</button>
+          <button type="button" class="chip chip--tag" aria-pressed="false" data-format="bullets" data-i18n-tip="format.bullets.tip">#bullets</button>
+          <button type="button" class="chip chip--tag" aria-pressed="false" data-format="table" data-i18n-tip="format.table.tip">#table</button>
+          <button type="button" class="chip chip--tag" aria-pressed="false" data-format="steps" data-i18n-tip="format.steps.tip">#steps</button>
+          <button type="button" class="chip chip--tag" aria-pressed="false" data-format="compare" data-i18n-tip="format.compare.tip">#compare</button>
+        </div>
+      </div>
+
       <form id="chat-form" class="chat-form">
         <input
           id="message-input"
           type="text"
           placeholder="Ask about soil data, classification, or the portal…"
+          data-i18n-placeholder="input.placeholder"
           autocomplete="off"
           required
         >
-        <button type="submit" aria-label="Send message">
+        <button type="submit" aria-label="Send message" data-i18n-aria="input.send">
           <span aria-hidden="true">↑</span>
         </button>
       </form>
+      <p id="usage" class="chat-footer__usage" aria-live="polite"></p>
       <p class="chat-footer__disclaimer">
-        AI can be wrong. Check important points against the cited document.
-        Questions are stored to improve the service and are processed by Mistral AI.
-        Do not enter personal data.
-        <a href="privacy.html">Privacy notice</a>
+        <span data-i18n="disclaimer.text">AI can be wrong. Check important points against the cited document. Questions are stored to improve the service and are processed by Mistral AI. Do not enter personal data.</span>
+        <a href="privacy.html" data-i18n="disclaimer.privacy">Privacy notice</a>
       </p>
       <p id="status" class="chat-footer__status"></p>
     </footer>
   </div>
 
-  <script src="chat.js?v=20261030c"></script>
+  <script src="chat.js?v=20261122a"></script>
 </body>
 </html>

@@ -55,3 +55,12 @@ logging:
   history_max_answer_chars: 1500
   history_expand_retrieval: true
   history_retrieval_max_chars: 2000
+
+limits:
+  # Questions per visitor per day (UTC day). Counted by a session cookie, not by IP.
+  daily_questions: 50
+
+feedback:
+  # Daily JSONL files (YYYY-MM-DD.jsonl). Relative to the code folder unless absolute.
+  # On Render the disk is ephemeral: copy these files out, or mount a persistent disk.
+  dir: logs/feedback

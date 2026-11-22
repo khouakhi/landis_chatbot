@@ -11,6 +11,9 @@ __pycache__/
 .env.*
 !.env.example
 
+# Local feedback files (may contain question text)
+logs/
+
 # Build / IDE
 dist/
 build/

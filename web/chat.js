@@ -37,6 +37,187 @@ const inputEl = document.getElementById("message-input");
 const statusEl = document.getElementById("status");
 const newChatBtn = document.getElementById("new-chat-btn");
 const submitBtn = formEl.querySelector('button[type="submit"]');
+const usageEl = document.getElementById("usage");
+const langButtons = document.querySelectorAll(".lang-switch__btn");
+const audienceButtons = document.querySelectorAll("[data-audience]");
+const formatButtons = document.querySelectorAll("[data-format]");
+
+const SUPPORTED_LANGS = ["en", "cy"];
+const LANG_STORAGE_KEY = "landis_lang";
+
+const state = {
+  audience: "general",
+  formats: new Set(),
+  usage: null,
+  busy: false,
+  lang: "en",
+};
+
+// Strings: web/i18n/en.json (reference) and web/i18n/cy.json (draft Welsh).
+let messagesDict = {};
+let activeDict = {};
+
+function t(key, vars) {
+  let text = activeDict[key];
+  if (text === undefined) {
+    text = messagesDict[key];
+  }
+  if (text === undefined) {
+    text = key;
+  }
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) {
+      text = text.replaceAll(`{${name}}`, String(value));
+    }
+  }
+  return text;
+}
+
+async function loadMessages(lang) {
+  try {
+    const response = await fetch(`i18n/${lang}.json`, { cache: "no-cache" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.warn(`LandIS: could not load ${lang} strings`, err);
+    return {};
+  }
+}
+
+function applyStaticText() {
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.textContent = t(node.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((node) => {
+    node.title = t(node.dataset.i18nTitle);
+  });
+  document.querySelectorAll("[data-i18n-aria]").forEach((node) => {
+    node.setAttribute("aria-label", t(node.dataset.i18nAria));
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+    node.placeholder = t(node.dataset.i18nPlaceholder);
+  });
+  document.querySelectorAll("[data-i18n-tip]").forEach((node) => {
+    node.dataset.tip = t(node.dataset.i18nTip);
+  });
+}
+
+function starterPrompts() {
+  if (Array.isArray(activeDict.starters)) {
+    return activeDict.starters;
+  }
+  if (Array.isArray(messagesDict.starters)) {
+    return messagesDict.starters;
+  }
+  return STARTER_PROMPTS;
+}
+
+function updateLangButtons() {
+  langButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.lang === state.lang));
+  });
+}
+
+function atDailyLimit() {
+  return Boolean(state.usage && state.usage.remaining <= 0);
+}
+
+function refreshFormState() {
+  const limited = atDailyLimit();
+  inputEl.disabled = limited;
+  submitBtn.disabled = state.busy || limited;
+}
+
+function renderUsage() {
+  const usage = state.usage;
+  if (!usage) {
+    usageEl.textContent = "";
+    usageEl.classList.remove("is-limit");
+    inputEl.placeholder = t("input.placeholder");
+    refreshFormState();
+    return;
+  }
+  if (atDailyLimit()) {
+    // The full friendly message appears in the chat as a notice, so keep this line short.
+    usageEl.textContent = t("usage.today", { used: usage.used, limit: usage.limit });
+    usageEl.classList.add("is-limit");
+    inputEl.placeholder = t("input.limitPlaceholder");
+  } else {
+    usageEl.textContent = t("usage.today", { used: usage.used, limit: usage.limit });
+    usageEl.classList.remove("is-limit");
+    inputEl.placeholder = t("input.placeholder");
+  }
+  refreshFormState();
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) {
+    node.className = className;
+  }
+  if (text !== undefined) {
+    node.textContent = text;
+  }
+  return node;
+}
+
+function renderStarterPrompts() {
+  startersEl.innerHTML = "";
+  for (const prompt of starterPrompts()) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "starter-prompt";
+    button.innerHTML = `
+      <span class="starter-prompt__label">${escapeHtml(prompt.label)}</span>
+      <span class="starter-prompt__text">${escapeHtml(prompt.text)}</span>
+    `;
+    button.addEventListener("click", () => {
+      inputEl.value = prompt.text;
+      formEl.requestSubmit();
+    });
+    startersEl.appendChild(button);
+  }
+}
+
+async function setLanguage(lang) {
+  const code = SUPPORTED_LANGS.includes(lang) ? lang : "en";
+  if (Object.keys(messagesDict).length === 0) {
+    messagesDict = await loadMessages("en");
+  }
+  activeDict = code === "en" ? messagesDict : await loadMessages(code);
+  if (typeof activeDict._status === "string" && activeDict._status.startsWith("DRAFT")) {
+    console.warn(`LandIS: ${code} strings are a draft. Check them with a Welsh speaker before use.`);
+  }
+  state.lang = code;
+  document.documentElement.lang = code === "cy" ? "cy" : "en-GB";
+  try {
+    window.localStorage.setItem(LANG_STORAGE_KEY, code);
+  } catch (_err) {
+    // Storage may be blocked inside an iframe. The choice still applies for this page.
+  }
+  applyStaticText();
+  renderStarterPrompts();
+  renderUsage();
+  updateLangButtons();
+}
+
+function chooseInitialLanguage() {
+  const fromUrl = params.get("lang");
+  if (SUPPORTED_LANGS.includes(fromUrl)) {
+    return fromUrl;
+  }
+  try {
+    const stored = window.localStorage.getItem(LANG_STORAGE_KEY);
+    if (SUPPORTED_LANGS.includes(stored)) {
+      return stored;
+    }
+  } catch (_err) {
+    // Ignore: fall back to English.
+  }
+  return "en";
+}
 
 function getSessionId() {
   return sessionStorage.getItem(SESSION_KEY);
@@ -64,18 +245,24 @@ function speechSupported() {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
-function pickEnglishVoice() {
+function speechLocale() {
+  return state.lang === "cy" ? "cy-GB" : "en-GB";
+}
+
+function pickVoice() {
   const voices = window.speechSynthesis.getVoices();
+  const locale = speechLocale();
+  const prefix = locale.split("-")[0];
   return (
-    voices.find((voice) => voice.lang === "en-GB") ||
-    voices.find((voice) => voice.lang.startsWith("en-GB")) ||
-    voices.find((voice) => voice.lang.startsWith("en-")) ||
+    voices.find((voice) => voice.lang === locale) ||
+    voices.find((voice) => voice.lang.startsWith(locale)) ||
+    voices.find((voice) => voice.lang.startsWith(`${prefix}-`)) ||
     null
   );
 }
 
 if (speechSupported()) {
-  window.speechSynthesis.addEventListener("voiceschanged", pickEnglishVoice);
+  window.speechSynthesis.addEventListener("voiceschanged", pickVoice);
 }
 
 function plainTextForSpeech(text) {
@@ -93,7 +280,7 @@ function stopReadAloud() {
   }
   window.speechSynthesis.cancel();
   if (activeReadButton) {
-    activeReadButton.textContent = "Read aloud";
+    activeReadButton.textContent = t("answer.readAloud");
     activeReadButton.setAttribute("aria-pressed", "false");
     activeReadButton = null;
   }
@@ -101,9 +288,9 @@ function stopReadAloud() {
 
 function toggleReadAloud(text, button) {
   if (!speechSupported()) {
-    button.textContent = "Not supported";
+    button.textContent = t("answer.notSupported");
     window.setTimeout(() => {
-      button.textContent = "Read aloud";
+      button.textContent = t("answer.readAloud");
     }, 2000);
     return;
   }
@@ -121,15 +308,15 @@ function toggleReadAloud(text, button) {
   }
 
   const utterance = new SpeechSynthesisUtterance(plain);
-  utterance.lang = "en-GB";
-  const voice = pickEnglishVoice();
+  utterance.lang = speechLocale();
+  const voice = pickVoice();
   if (voice) {
     utterance.voice = voice;
   }
 
   utterance.onstart = () => {
     activeReadButton = button;
-    button.textContent = "Stop";
+    button.textContent = t("answer.stop");
     button.setAttribute("aria-pressed", "true");
   };
 
@@ -137,7 +324,7 @@ function toggleReadAloud(text, button) {
     if (activeReadButton === button) {
       activeReadButton = null;
     }
-    button.textContent = "Read aloud";
+    button.textContent = t("answer.readAloud");
     button.setAttribute("aria-pressed", "false");
   };
 
@@ -149,7 +336,8 @@ function toggleReadAloud(text, button) {
 
 function formatLocation(source) {
   const type = source.location_type || "page";
-  const span = `${type}s ${source.location_start}–${source.location_end}`;
+  const unit = type === "page" ? t("sources.pages") : `${type}s`;
+  const span = `${unit} ${source.location_start}–${source.location_end}`;
   return source.section ? `${source.section}, ${span}` : span;
 }
 
@@ -173,7 +361,7 @@ function renderCitationBadges(inner, sources) {
   return labels
     .map((label) => {
       const source = sources.find((item) => item.label === label);
-      const title = source ? sourceDisplayName(source) : `Source ${label}`;
+      const title = source ? sourceDisplayName(source) : t("sources.fallbackLabel", { label });
       return `<button type="button" class="citation-badge" data-source-label="${label}" title="${escapeHtml(title)}">${label}</button>`;
     })
     .join("");
@@ -719,7 +907,7 @@ function formatAssistantContent(text, sources) {
 }
 
 function sourceDisplayName(source) {
-  return source.title || source.filename || "Source";
+  return source.title || source.filename || t("sources.fallbackName");
 }
 
 function buildSourcesPanel(sources) {
@@ -728,7 +916,7 @@ function buildSourcesPanel(sources) {
 
   const summary = document.createElement("summary");
   summary.className = "sources-panel__title";
-  summary.textContent = `Sources (${sources.length})`;
+  summary.textContent = t("sources.title", { count: sources.length });
   panel.appendChild(summary);
 
   const list = document.createElement("ol");
@@ -746,7 +934,7 @@ function buildSourcesPanel(sources) {
     const meta = document.createElement("div");
     meta.className = "sources-panel__meta";
     if (source.public_url) {
-      meta.innerHTML = `${escapeHtml(formatLocation(source))} · <a class="sources-panel__link" href="${escapeHtml(source.public_url)}" target="_blank" rel="noopener noreferrer">View public document</a>`;
+      meta.innerHTML = `${escapeHtml(formatLocation(source))} · <a class="sources-panel__link" href="${escapeHtml(source.public_url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t("sources.viewPublic"))}</a>`;
     } else {
       meta.textContent = formatLocation(source);
     }
@@ -771,7 +959,7 @@ function buildFollowUpQuestions(questions) {
 
   const heading = document.createElement("h3");
   heading.className = "follow-up__title";
-  heading.textContent = "Suggested questions";
+  heading.textContent = t("followUp.title");
   section.appendChild(heading);
 
   const list = document.createElement("div");
@@ -812,7 +1000,130 @@ function appendStatusMessage(text) {
   return div;
 }
 
-function appendMessage(role, content, sources, suggestedQuestions) {
+const THUMB_UP_SVG =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+const THUMB_DOWN_SVG =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>';
+
+const REASON_OPTIONS = [
+  ["incorrect", "feedback.reason.incorrect"],
+  ["not_answered", "feedback.reason.notAnswered"],
+  ["too_technical", "feedback.reason.tooTechnical"],
+  ["too_simple", "feedback.reason.tooSimple"],
+];
+
+function feedbackButton(rating, label) {
+  const button = el("button", "message__action");
+  button.type = "button";
+  button.innerHTML = `${rating === "up" ? THUMB_UP_SVG : THUMB_DOWN_SVG}${escapeHtml(label)}`;
+  button.setAttribute("aria-label", label);
+  button.title = label;
+  return button;
+}
+
+function feedbackRecord(content, sources, meta, rating, reason) {
+  return {
+    rating,
+    reason: reason || null,
+    question: (meta && meta.question) || "",
+    answer: content || "",
+    audience: (meta && meta.audience) || "general",
+    formats: (meta && meta.formats) || [],
+    lang: (meta && meta.lang) || "en",
+    cited_chunk_ids: (sources || []).map((source) => source.chunk_id).filter(Boolean),
+    response_ms: meta && Number.isFinite(meta.responseMs) ? meta.responseMs : null,
+  };
+}
+
+async function saveFeedback(record) {
+  try {
+    const response = await fetch(`${apiBase}/api/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record),
+      credentials: "include",
+    });
+    return response.ok;
+  } catch (_err) {
+    return false;
+  }
+}
+
+/**
+ * Thumbs up saves at once. Thumbs down asks for an optional reason, then saves
+ * once (with the reason, or without it after "Skip"). Each answer is rated once.
+ */
+function attachFeedback({ content, sources, meta, helpfulBtn, notHelpfulBtn, area }) {
+  let rated = false;
+
+  const lockRatings = () => {
+    helpfulBtn.disabled = true;
+    notHelpfulBtn.disabled = true;
+  };
+
+  const showThanks = (text) => {
+    area.innerHTML = "";
+    area.appendChild(el("p", "feedback-reasons__note", text));
+  };
+
+  helpfulBtn.addEventListener("click", async () => {
+    if (rated) {
+      return;
+    }
+    rated = true;
+    lockRatings();
+    helpfulBtn.classList.add("is-active");
+    const ok = await saveFeedback(feedbackRecord(content, sources, meta, "up", null));
+    showThanks(ok ? t("feedback.thanks") : t("feedback.failed"));
+  });
+
+  notHelpfulBtn.addEventListener("click", () => {
+    if (rated) {
+      return;
+    }
+    rated = true;
+    lockRatings();
+    notHelpfulBtn.classList.add("is-active");
+
+    const panel = el("div", "feedback-reasons");
+    panel.appendChild(el("p", "feedback-reasons__title", t("feedback.reasonTitle")));
+    const list = el("div", "feedback-reasons__list");
+
+    const choose = async (reason) => {
+      panel.querySelectorAll("button").forEach((button) => {
+        button.disabled = true;
+      });
+      const ok = await saveFeedback(feedbackRecord(content, sources, meta, "down", reason));
+      showThanks(ok ? t("feedback.thanks") : t("feedback.failed"));
+    };
+
+    for (const [reason, key] of REASON_OPTIONS) {
+      const button = el("button", "chip", t(key));
+      button.type = "button";
+      button.addEventListener("click", () => choose(reason));
+      list.appendChild(button);
+    }
+    const skip = el("button", "chip", t("feedback.skip"));
+    skip.type = "button";
+    skip.addEventListener("click", () => choose(null));
+    list.appendChild(skip);
+
+    panel.appendChild(list);
+    area.innerHTML = "";
+    area.appendChild(panel);
+  });
+}
+
+function appendNotice(text) {
+  hideWelcome();
+  const div = el("div", "message notice", text);
+  div.setAttribute("role", "status");
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div;
+}
+
+function appendMessage(role, content, sources, suggestedQuestions, meta) {
   hideWelcome();
 
   const div = document.createElement("article");
@@ -845,34 +1156,47 @@ function appendMessage(role, content, sources, suggestedQuestions) {
     const actions = document.createElement("div");
     actions.className = "message__actions";
 
+    if (meta && Number.isFinite(meta.responseMs)) {
+      actions.appendChild(
+        el("span", "message__meta", t("answer.answeredIn", { seconds: (meta.responseMs / 1000).toFixed(1) }))
+      );
+    }
+
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "message__action";
-    copyBtn.textContent = "Copy";
+    copyBtn.textContent = t("answer.copy");
     copyBtn.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(content || "");
-        copyBtn.textContent = "Copied";
+        copyBtn.textContent = t("answer.copied");
         window.setTimeout(() => {
-          copyBtn.textContent = "Copy";
+          copyBtn.textContent = t("answer.copy");
         }, 1500);
       } catch (_err) {
-        copyBtn.textContent = "Copy failed";
+        copyBtn.textContent = t("answer.copyFailed");
       }
     });
 
     const readBtn = document.createElement("button");
     readBtn.type = "button";
     readBtn.className = "message__action";
-    readBtn.textContent = "Read aloud";
+    readBtn.textContent = t("answer.readAloud");
     readBtn.setAttribute("aria-pressed", "false");
-    readBtn.setAttribute("aria-label", "Read this answer aloud");
+    readBtn.setAttribute("aria-label", t("answer.readAloudLabel"));
     readBtn.addEventListener("click", () => {
       toggleReadAloud(content, readBtn);
     });
 
-    actions.append(copyBtn, readBtn);
+    const helpfulBtn = feedbackButton("up", t("feedback.helpful"));
+    const notHelpfulBtn = feedbackButton("down", t("feedback.notHelpful"));
+
+    actions.append(copyBtn, readBtn, helpfulBtn, notHelpfulBtn);
     div.appendChild(actions);
+
+    const feedbackArea = el("div", "feedback");
+    div.appendChild(feedbackArea);
+    attachFeedback({ content, sources, meta, helpfulBtn, notHelpfulBtn, area: feedbackArea });
 
     if (sources && sources.length > 0) {
       div.appendChild(buildSourcesPanel(sources));
@@ -918,76 +1242,95 @@ function setStatus(text) {
   statusEl.textContent = text;
 }
 
-function renderStarterPrompts() {
-  startersEl.innerHTML = "";
-  for (const prompt of STARTER_PROMPTS) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "starter-prompt";
-    button.innerHTML = `
-      <span class="starter-prompt__label">${escapeHtml(prompt.label)}</span>
-      <span class="starter-prompt__text">${escapeHtml(prompt.text)}</span>
-    `;
-    button.addEventListener("click", () => {
-      inputEl.value = prompt.text;
-      formEl.requestSubmit();
-    });
-    startersEl.appendChild(button);
-  }
-}
-
 async function sendMessage(message) {
-  const payload = { message };
+  if (atDailyLimit()) {
+    appendNotice(t("usage.limitReached", { limit: state.usage.limit }));
+    setStatus(t("status.dailyLimit"));
+    return;
+  }
+
+  const payload = {
+    message,
+    audience: state.audience,
+    formats: [...state.formats],
+    lang: state.lang,
+  };
   const sessionId = getSessionId();
   if (sessionId) {
     payload.session_id = sessionId;
   }
 
-  submitBtn.disabled = true;
-  setStatus("Connecting to the LandIS knowledge base…");
-  const pendingStatus = appendStatusMessage("Searching project documents…");
+  state.busy = true;
+  refreshFormState();
+  setStatus(t("status.connecting"));
+  const pendingStatus = appendStatusMessage(t("status.searching"));
+  const started = performance.now();
 
   try {
     const response = await fetch(`${apiBase}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      credentials: "include",
     });
+
+    if (response.status === 429) {
+      // Daily limit: the server did not call the model. Show a friendly notice.
+      const body = await response.json().catch(() => ({}));
+      const detail = body.detail || {};
+      pendingStatus.remove();
+      state.usage = {
+        used: detail.used ?? state.usage?.limit ?? 0,
+        limit: detail.limit ?? state.usage?.limit ?? 0,
+        remaining: 0,
+      };
+      renderUsage();
+      appendNotice(t("usage.limitReached", { limit: state.usage.limit }));
+      setStatus(t("status.dailyLimit"));
+      return;
+    }
 
     if (!response.ok) {
       const detail = await response.text();
       throw new Error(`HTTP ${response.status}: ${detail}`);
     }
 
+    const responseMs = Math.round(performance.now() - started);
     const data = await response.json();
     pendingStatus.remove();
     setSessionId(data.session_id);
+    if (data.usage) {
+      state.usage = data.usage;
+      renderUsage();
+    }
 
     if (data.error) {
       appendMessage("error", data.answer || data.error);
-      setStatus("The assistant could not answer.");
+      setStatus(t("status.couldNotAnswer"));
     } else {
-      appendMessage(
-        "assistant",
-        data.answer,
-        data.sources,
-        data.suggested_questions
-      );
+      appendMessage("assistant", data.answer, data.sources, data.suggested_questions, {
+        question: message,
+        audience: payload.audience,
+        formats: payload.formats,
+        lang: payload.lang,
+        responseMs,
+      });
       const publicCount = (data.sources || []).filter((s) => s.public_url).length;
       let statusText = data.sources?.length
-        ? `Answered using ${data.sources.length} cited source(s).`
-        : "Answer ready.";
+        ? t("status.answered", { count: data.sources.length })
+        : t("status.answerReady");
       if (publicCount > 0) {
-        statusText += ` Expand Sources below for ${publicCount} public link(s).`;
+        statusText += ` ${t("status.publicLinks", { count: publicCount })}`;
       }
       setStatus(statusText);
     }
   } catch (err) {
     pendingStatus.remove();
     appendMessage("error", err.message || String(err));
-    setStatus("Request failed.");
+    setStatus(t("status.requestFailed"));
   } finally {
-    submitBtn.disabled = false;
+    state.busy = false;
+    refreshFormState();
     inputEl.focus();
   }
 }
@@ -1006,21 +1349,66 @@ newChatBtn.addEventListener("click", () => {
   stopReadAloud();
   clearSession();
   showWelcome();
-  setStatus("New conversation started.");
+  setStatus(t("status.newConversation"));
   inputEl.focus();
 });
 
-renderStarterPrompts();
+audienceButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    state.audience = button.dataset.audience;
+    audienceButtons.forEach((other) => {
+      other.setAttribute("aria-pressed", String(other === button));
+      other.classList.toggle("is-selected", other === button);
+    });
+  });
+});
 
-const isLocalDev =
-  window.location.hostname === "localhost" ||
-  window.location.hostname === "127.0.0.1";
+formatButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const tag = button.dataset.format;
+    if (state.formats.has(tag)) {
+      state.formats.delete(tag);
+    } else {
+      state.formats.add(tag);
+    }
+    button.setAttribute("aria-pressed", String(state.formats.has(tag)));
+  });
+});
 
-const existingSession = getSessionId();
-if (existingSession) {
-  setStatus(`Session restored (${existingSession.slice(0, 8)}…).`);
-} else if (isLocalDev) {
-  setStatus(`Local test client. API: ${apiBase}/api/chat`);
+langButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setLanguage(button.dataset.lang);
+  });
+});
+
+async function refreshUsage() {
+  try {
+    const response = await fetch(`${apiBase}/api/usage`, { credentials: "include" });
+    if (response.ok) {
+      state.usage = await response.json();
+      renderUsage();
+    }
+  } catch (_err) {
+    // The counter is shown only when the API answers. Chat still works without it.
+  }
 }
 
-inputEl.focus();
+async function bootstrap() {
+  await setLanguage(chooseInitialLanguage());
+  await refreshUsage();
+
+  const isLocalDev =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+
+  const existingSession = getSessionId();
+  if (existingSession) {
+    setStatus(t("status.sessionRestored", { id: existingSession.slice(0, 8) }));
+  } else if (isLocalDev) {
+    setStatus(t("status.localClient", { api: `${apiBase}/api/chat` }));
+  }
+
+  inputEl.focus();
+}
+
+bootstrap();

@@ -1,0 +1,97 @@
+{
+  "_language": "cy-GB",
+  "_status": "DRAFT: machine-assisted first pass. Needs checking by a Welsh speaker before use.",
+
+  "header.tagline": "Data pridd ar gyfer Cymru a Lloegr",
+  "header.newChat": "Sgwrs newydd",
+  "header.newChatTitle": "Dechrau sgwrs newydd",
+  "header.language": "Iaith",
+
+  "welcome.intro": "Rwy'n ateb o ddogfennau LandIS wedi'u dewis, ac yn dyfynnu'r dudalen a ddefnyddiais. Ni allaf ddweud wrthych pa bridd sydd mewn lle penodol. Defnyddiwch fap y porth ar gyfer hynny. Dewiswch gwestiwn cychwynnol neu teipiwch eich cwestiwn eich hun.",
+
+  "starters": [
+    {
+      "label": "Dosbarthiad pridd",
+      "text": "Sut mae dosbarthiad pridd Cymru a Lloegr yn disgrifio prif grwpiau pridd?"
+    },
+    {
+      "label": "Soilscapes",
+      "text": "Beth yw Soilscapes, a pha raddfa o wybodaeth bridd mae'n ei dangos?"
+    },
+    {
+      "label": "Defnyddio data LandIS",
+      "text": "Beth mae polisi gwybodaeth a data pridd LandIS yn ei ddweud am ddefnyddio'r data?"
+    },
+    {
+      "label": "Dosbarthiadau HOST",
+      "text": "Crynhowch at beth mae dosbarthiadau hydroleg pridd HOST yn cael eu defnyddio, mewn tabl byr os yw'r ffynonellau'n caniatáu."
+    }
+  ],
+
+  "controls.audience": "Cynulleidfa",
+  "audience.general": "Y cyhoedd",
+  "audience.general.tip": "Iaith glir, termau wedi'u hegluro, brawddegau byr.",
+  "audience.manager": "Rheolwr tir / cynghorydd",
+  "audience.manager.tip": "Ymarferol a rheolaethol, esboniadau byr.",
+  "audience.specialist": "Arbenigwr pridd",
+  "audience.specialist.tip": "Manylion technegol llawn, heb symleiddio.",
+
+  "controls.format": "Fformat",
+  "format.short.tip": "Ateb byrrach.",
+  "format.bullets.tip": "Ateb ar ffurf pwyntiau bwled.",
+  "format.table.tip": "Cynnwys tabl lle mae'r ffynonellau'n caniatáu.",
+  "format.steps.tip": "Rhoi'r ateb fel camau wedi'u rhifo.",
+  "format.compare.tip": "Cymharu'r opsiynau ochr yn ochr.",
+
+  "input.placeholder": "Gofynnwch am ddata pridd, dosbarthiad, neu'r porth…",
+  "input.send": "Anfon neges",
+  "input.limitPlaceholder": "Cyrhaeddwyd y terfyn dyddiol. Dewch yn ôl yfory, os gwelwch yn dda.",
+
+  "usage.today": "{used} o {limit} cwestiwn heddiw",
+  "usage.limitReached": "Rydych wedi cyrraedd terfyn heddiw o {limit} cwestiwn. Dewch yn ôl yfory, os gwelwch yn dda. Mae eich atebion blaenorol yn dal ar y dudalen hon.",
+
+  "disclaimer.text": "Gall AI fod yn anghywir. Gwiriwch bwyntiau pwysig yn erbyn y ddogfen a ddyfynnwyd. Caiff cwestiynau eu storio i wella'r gwasanaeth, ac mae Mistral AI yn eu prosesu. Peidiwch â rhoi data personol.",
+  "disclaimer.privacy": "Hysbysiad preifatrwydd",
+
+  "status.connecting": "Yn cysylltu â chronfa wybodaeth LandIS…",
+  "status.searching": "Yn chwilio dogfennau'r prosiect…",
+  "status.answered": "Atebwyd gan ddefnyddio {count} ffynhonnell a ddyfynnwyd.",
+  "status.answerReady": "Mae'r ateb yn barod.",
+  "status.publicLinks": "Ehangwch Ffynonellau isod ar gyfer {count} dolen gyhoeddus.",
+  "status.couldNotAnswer": "Ni allai'r cynorthwyydd ateb.",
+  "status.requestFailed": "Methodd y cais.",
+  "status.dailyLimit": "Cyrhaeddwyd y terfyn cwestiynau dyddiol.",
+  "status.newConversation": "Dechreuwyd sgwrs newydd.",
+  "status.sessionRestored": "Adferwyd y sesiwn ({id}…).",
+  "status.localClient": "Cleient prawf lleol. API: {api}",
+
+  "answer.copy": "Copïo",
+  "answer.copied": "Wedi copïo",
+  "answer.copyFailed": "Methodd y copïo",
+  "answer.readAloud": "Darllen yn uchel",
+  "answer.stop": "Stopio",
+  "answer.notSupported": "Ddim yn cael ei gefnogi",
+  "answer.readAloudLabel": "Darllen yr ateb hwn yn uchel",
+  "answer.answeredIn": "Atebwyd mewn {seconds} eiliad",
+
+  "sources.title": "Ffynonellau ({count})",
+  "sources.viewPublic": "Gweld y ddogfen gyhoeddus",
+  "sources.fallbackLabel": "Ffynhonnell {label}",
+  "sources.fallbackName": "Ffynhonnell",
+  "sources.pages": "tudalennau",
+
+  "followUp.title": "Cwestiynau awgrymedig",
+
+  "feedback.helpful": "Defnyddiol",
+  "feedback.notHelpful": "Ddim yn ddefnyddiol",
+  "feedback.reasonTitle": "Beth oedd o'i le ar yr ateb hwn? (dewisol)",
+  "feedback.reason.incorrect": "Anghywir",
+  "feedback.reason.notAnswered": "Ni atebodd",
+  "feedback.reason.tooTechnical": "Rhy dechnegol",
+  "feedback.reason.tooSimple": "Rhy syml",
+  "feedback.skip": "Hepgor",
+  "feedback.thanks": "Diolch am eich adborth.",
+  "feedback.failed": "Ni ellid cadw eich adborth. Rhowch gynnig arall arni.",
+
+  "error.generic": "Aeth rhywbeth o'i le. Rhowch gynnig arall arni."
+}

@@ -70,6 +70,8 @@ _embed = _nested("embedding")
 _chat = _nested("chat")
 _rag = _nested("rag")
 _log = _nested("logging")
+_limits = _nested("limits")
+_feedback = _nested("feedback")
 
 KB_VERSION: str = str(_SETTINGS.get("kb_version") or "0.1")
 KNOWLEDGE_BASE: Path = _path_setting(
@@ -165,6 +167,23 @@ CHAT_HISTORY_RETRIEVAL_MAX_CHARS: int = max(
 )
 
 CONVERSATIONS_TABLE: str = "landis_conversations"
+
+# Daily question limit per visitor (session cookie). Env DAILY_QUESTION_LIMIT overrides settings.yaml.
+DAILY_QUESTION_LIMIT: int = max(
+    1,
+    int(
+        os.environ.get("DAILY_QUESTION_LIMIT")
+        or str(_limits.get("daily_questions") or 50)
+    ),
+)
+VISITOR_COOKIE_NAME: str = "landis_visitor"
+VISITOR_COOKIE_MAX_AGE_DAYS: int = 400
+
+FEEDBACK_DIR: Path = _path_setting(
+    "FEEDBACK_DIR",
+    str(_feedback.get("dir") or ""),
+    _ROOT / "logs" / "feedback",
+)
 
 OCR_EXTENSIONS: tuple[str, ...] = (
     ".pdf",

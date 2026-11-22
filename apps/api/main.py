@@ -22,16 +22,17 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import RedirectResponse, Response
 
 from routes.chat import router as chat_router
+from routes.feedback import router as feedback_router
 
 logger = logging.getLogger(__name__)
 
 
 class ShortCacheStaticFiles(StaticFiles):
-    """Ask browsers to revalidate the chat page after each deploy."""
+    """Ask browsers to revalidate the chat page and its strings after each deploy."""
 
     async def get_response(self, path: str, scope):
         response = await super().get_response(path, scope)
-        if isinstance(response, Response) and path.endswith((".js", ".css", ".html")):
+        if isinstance(response, Response) and path.endswith((".js", ".css", ".html", ".json")):
             response.headers["Cache-Control"] = "no-cache, must-revalidate"
         return response
 
@@ -122,6 +123,7 @@ app.add_middleware(
 )
 
 app.include_router(chat_router)
+app.include_router(feedback_router)
 
 _web_dir = Path(__file__).resolve().parents[2] / "web"
 if _web_dir.is_dir():

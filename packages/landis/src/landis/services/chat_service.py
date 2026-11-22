@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from .. import config as cfg
@@ -77,13 +78,23 @@ class ChatService:
         history: list[ChatTurn] | None = None,
         client: ClientMetadata | None = None,
         top_k: int | None = None,
+        audience: str = "general",
+        formats: Sequence[str] = (),
+        lang: str = "en",
     ) -> ChatResponse:
         text = (message or "").strip()
         k = int(top_k or cfg.RAG_TOP_K)
         if not text:
             return ChatResponse(answer="", sources=[], top_k=k)
         try:
-            result = answer_question(text, top_k=k, history=history)
+            result = answer_question(
+                text,
+                top_k=k,
+                history=history,
+                audience=audience,
+                formats=formats,
+                lang=lang,
+            )
         except (FileNotFoundError, RuntimeError, DatabaseError) as exc:
             message_text = quota_message(exc) or str(exc)
             log_interaction(question=text, answer=None, error=message_text, client=client)

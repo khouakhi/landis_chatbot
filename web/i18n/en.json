@@ -1,0 +1,97 @@
+{
+  "_language": "en-GB",
+  "_status": "Reviewed",
+
+  "header.tagline": "Soil data for England and Wales",
+  "header.newChat": "New chat",
+  "header.newChatTitle": "Start a new conversation",
+  "header.language": "Language",
+
+  "welcome.intro": "I answer from curated LandIS documents and cite the page I used. I cannot tell you the soil at a particular place. Use the portal map for that. Choose a starter question or type your own.",
+
+  "starters": [
+    {
+      "label": "Soil classification",
+      "text": "How does the soil classification for England and Wales describe major soil groups?"
+    },
+    {
+      "label": "Soilscapes",
+      "text": "What is Soilscapes and what scale of soil information does it show?"
+    },
+    {
+      "label": "Using LandIS data",
+      "text": "What does the LandIS soil information and data policy say about using the data?"
+    },
+    {
+      "label": "HOST classes",
+      "text": "Summarise what HOST soil hydrology classes are used for, in a short table if the sources support it."
+    }
+  ],
+
+  "controls.audience": "Audience",
+  "audience.general": "General public",
+  "audience.general.tip": "Plain English, terms explained, short sentences.",
+  "audience.manager": "Land manager / adviser",
+  "audience.manager.tip": "Practical and management-focused, brief explanations.",
+  "audience.specialist": "Soil specialist",
+  "audience.specialist.tip": "Full technical detail, no simplification.",
+
+  "controls.format": "Format",
+  "format.short.tip": "A shorter answer.",
+  "format.bullets.tip": "Answer as bullet points.",
+  "format.table.tip": "Include a table where the sources support one.",
+  "format.steps.tip": "Give the answer as numbered steps.",
+  "format.compare.tip": "Compare the options side by side.",
+
+  "input.placeholder": "Ask about soil data, classification, or the portal…",
+  "input.send": "Send message",
+  "input.limitPlaceholder": "Daily limit reached. Please come back tomorrow.",
+
+  "usage.today": "{used} of {limit} questions today",
+  "usage.limitReached": "You have reached today's limit of {limit} questions. Please come back tomorrow. Your earlier answers are still on this page.",
+
+  "disclaimer.text": "AI can be wrong. Check important points against the cited document. Questions are stored to improve the service and are processed by Mistral AI. Do not enter personal data.",
+  "disclaimer.privacy": "Privacy notice",
+
+  "status.connecting": "Connecting to the LandIS knowledge base…",
+  "status.searching": "Searching project documents…",
+  "status.answered": "Answered using {count} cited source(s).",
+  "status.answerReady": "Answer ready.",
+  "status.publicLinks": "Expand Sources below for {count} public link(s).",
+  "status.couldNotAnswer": "The assistant could not answer.",
+  "status.requestFailed": "Request failed.",
+  "status.dailyLimit": "Daily question limit reached.",
+  "status.newConversation": "New conversation started.",
+  "status.sessionRestored": "Session restored ({id}…).",
+  "status.localClient": "Local test client. API: {api}",
+
+  "answer.copy": "Copy",
+  "answer.copied": "Copied",
+  "answer.copyFailed": "Copy failed",
+  "answer.readAloud": "Read aloud",
+  "answer.stop": "Stop",
+  "answer.notSupported": "Not supported",
+  "answer.readAloudLabel": "Read this answer aloud",
+  "answer.answeredIn": "Answered in {seconds} s",
+
+  "sources.title": "Sources ({count})",
+  "sources.viewPublic": "View public document",
+  "sources.fallbackLabel": "Source {label}",
+  "sources.fallbackName": "Source",
+  "sources.pages": "pages",
+
+  "followUp.title": "Suggested questions",
+
+  "feedback.helpful": "Helpful",
+  "feedback.notHelpful": "Not helpful",
+  "feedback.reasonTitle": "What was wrong with this answer? (optional)",
+  "feedback.reason.incorrect": "Incorrect",
+  "feedback.reason.notAnswered": "Did not answer",
+  "feedback.reason.tooTechnical": "Too technical",
+  "feedback.reason.tooSimple": "Too simple",
+  "feedback.skip": "Skip",
+  "feedback.thanks": "Thank you for your feedback.",
+  "feedback.failed": "Your feedback could not be saved. Please try again.",
+
+  "error.generic": "Something went wrong. Please try again."
+}

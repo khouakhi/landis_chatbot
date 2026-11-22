@@ -11,6 +11,7 @@ There is no tool loop.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -43,9 +44,56 @@ _FOLLOWUP = frozenset(
 )
 
 
-def system_prompt() -> str:
+AUDIENCES: tuple[str, ...] = ("general", "manager", "specialist")
+FORMAT_TAGS: tuple[str, ...] = ("short", "bullets", "table", "steps", "compare")
+LANGUAGES: tuple[str, ...] = ("en", "cy")
+
+_AUDIENCE_NOTES: dict[str, str] = {
+    "general": (
+        "Audience: general public. Use plain English and short sentences. "
+        "Define technical terms the first time they appear. Keep explanations brief."
+    ),
+    "manager": (
+        "Audience: land manager or adviser. Be practical and management-focused. "
+        "Say what the information means for decisions on the ground. Keep explanations brief."
+    ),
+    "specialist": (
+        "Audience: soil specialist. Give full technical detail and use the correct "
+        "terminology. Do not simplify."
+    ),
+}
+
+_FORMAT_NOTES: dict[str, str] = {
+    "short": "Format: keep the answer short, a few sentences or about 80 words at most.",
+    "bullets": "Format: give the answer mainly as bullet points.",
+    "table": (
+        "Format: include a GitHub-flavoured Markdown table that summarises the answer, "
+        "if the sources support one. Each row on its own line, with a separator row."
+    ),
+    "steps": "Format: give the answer as numbered steps.",
+    "compare": (
+        "Format: compare the options side by side in a Markdown table, with one column "
+        "per option, if the sources support a comparison."
+    ),
+}
+
+_LANGUAGE_NOTES: dict[str, str] = {
+    "en": "Write the whole answer in English, with UK spelling.",
+    "cy": (
+        "Write the whole answer in Welsh (Cymraeg), including the follow-up questions. "
+        "Keep document titles, section names, and place names as they appear in the sources."
+    ),
+}
+
+
+def system_prompt(
+    audience: str = "general",
+    formats: Sequence[str] = (),
+    lang: str = "en",
+) -> str:
+    """Build the system prompt. Audience, format, and language change style only."""
     portal = cfg.PORTAL_MAP_URL
-    return (
+    head = (
         "You are the LandIS assistant for the National Soil Data Portal for England and Wales. "
         "You answer questions about soil data, soil classification, soil survey reports, "
         "and how to use the portal. "
@@ -59,20 +107,36 @@ def system_prompt() -> str:
         "Do not give site-specific advice about what soil is at a place, a postcode, or a "
         f"grid reference. Point the user to the portal map instead: {portal}. "
         "Do not interpret regulations, planning rules, or what a person is legally required to do. "
-        "The source corpus is in English. Answer in the language the user wrote in, "
-        "and use UK English spelling when the user writes in English. "
+        "The source corpus is in English. "
         "Use Markdown: one ### heading, then bold **Section title:** lines, then bullets. "
         "Do not use heading levels deeper than ###. "
         "When a table helps, use GitHub-flavoured Markdown with each row on its own line "
-        "and a separator row. Never put a whole table on one line. "
+        "and a separator row. Never put a whole table on one line."
+    )
+
+    style_notes = [
+        _AUDIENCE_NOTES.get(audience, _AUDIENCE_NOTES["general"]),
+        _LANGUAGE_NOTES.get(lang, _LANGUAGE_NOTES["en"]),
+    ]
+    for tag in formats:
+        if tag in _FORMAT_NOTES:
+            style_notes.append(_FORMAT_NOTES[tag])
+    style_notes.append(
+        "These style notes change how the answer is written, not which sources are used. "
+        "The citation and grounding rules above still apply in full."
+    )
+
+    tail = (
         "After the answer, append exactly three follow-up questions inside this block "
-        "and do not put citations inside it:\n"
+        "and do not put citations inside it. Write the follow-up questions in the same "
+        "language as the answer:\n"
         "<<SUGGESTED>>\n"
         "- First follow-up question?\n"
         "- Second follow-up question?\n"
         "- Third follow-up question?\n"
         "<<END>>"
     )
+    return "\n\n".join([head, *style_notes, tail])
 
 
 @dataclass
@@ -290,10 +354,15 @@ def answer_question(
     user_message: str,
     top_k: int | None = None,
     history: list[ChatTurn] | None = None,
+    *,
+    audience: str = "general",
+    formats: Sequence[str] = (),
+    lang: str = "en",
 ) -> RAGResult:
     k = int(top_k or cfg.RAG_TOP_K)
     client = emb.get_client()
     search = retrieval_query(user_message, history)
+    # Retrieval uses the question only. Audience, format, and language affect the wording.
     sources, context = retrieve(client, search, k)
     if not context:
         return RAGResult(
@@ -317,7 +386,8 @@ def answer_question(
         )
     note = ("\n".join(notes) + "\n\n") if notes else ""
     user_block = f"{note}Question: {user_message}\n\nContext:\n{context}"
-    messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt()}]
+    style = system_prompt(audience=audience, formats=formats, lang=lang)
+    messages: list[dict[str, str]] = [{"role": "system", "content": style}]
     for turn in history or []:
         messages.append({"role": "user", "content": turn.question})
         messages.append({"role": "assistant", "content": turn.answer})
