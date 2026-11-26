@@ -143,6 +143,8 @@ def chunk_records(
                 "printed_page_end": draft.printed_pages[-1] if draft.printed_pages else None,
                 "has_table": draft.has_table,
                 "embedding": vector.tolist(),
+                "source_url": draft.source_url or None,
+                "source_title": draft.source_title or None,
             }
         )
     return records

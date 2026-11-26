@@ -37,6 +37,9 @@ class ChunkDraft:
     printed_pages: list[str] = field(default_factory=list)
     entity_codes: list[str] = field(default_factory=list)
     has_table: bool = False
+    # Structured records only: the record's Soils Guide page and its title.
+    source_url: str = ""
+    source_title: str = ""
 
     @property
     def page_start(self) -> int:

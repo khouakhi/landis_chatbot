@@ -271,3 +271,61 @@ def test_feedback_writes_record_without_ip(monkeypatch, tmp_path):
     serialised = json.dumps(record)
     assert "203.0.113.9" not in serialised
     assert "pytest-agent" not in serialised
+
+
+# --- Citation markers -------------------------------------------------------
+
+
+def test_clean_citation_markers_drops_association_codes():
+    from landis.citations import clean_citation_markers
+
+    text = "Groups series [3, 4, 541m, 654a, 711] together [541m] and [2]."
+    cleaned = clean_citation_markers(text, 8)
+    assert cleaned == "Groups series [3, 4] together and [2]."
+
+
+def test_clean_citation_markers_leaves_other_brackets_alone():
+    from landis.citations import clean_citation_markers
+
+    text = "See [the portal](https://example.org) and [Table 1]."
+    assert clean_citation_markers(text, 5) == text
+
+
+def test_prompt_forbids_codes_in_citation_brackets():
+    assert "541m" in system_prompt()
+
+
+def test_clean_citation_markers_keeps_at_most_two():
+    from landis.citations import clean_citation_markers
+
+    assert clean_citation_markers("A fact [1, 3, 4, 5, 6].", 8) == "A fact [1, 3]."
+
+
+def test_definition_question_detected():
+    from landis.rag import looks_like_definition
+
+    assert looks_like_definition("what is soil associations")
+    assert looks_like_definition("What are soil associations?")
+    assert looks_like_definition("define soil series")
+    assert not looks_like_definition("what is the area of the Denchworth series")
+
+
+def test_definition_note_added_to_prompt_context(monkeypatch):
+    from types import SimpleNamespace
+
+    from landis import rag
+
+    captured = {}
+
+    class FakeChat:
+        def complete(self, **kwargs):
+            captured["messages"] = kwargs["messages"]
+            message = SimpleNamespace(content="A definition [1].")
+            return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+    fake_client = SimpleNamespace(chat=FakeChat())
+    monkeypatch.setattr(rag, "retrieve", lambda client, question, top_k, pinned=(): ([], "[1] excerpt"))
+    monkeypatch.setattr(rag.emb, "get_client", lambda: fake_client)
+    rag.answer_question("what is soil associations")
+    user_block = captured["messages"][-1]["content"]
+    assert "definition question" in user_block

@@ -7,8 +7,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from .. import config as cfg
+from .. import codes
+from ..answer_format import tidy_answer_format
 from ..chat_history import ChatTurn
-from ..citations import sources_cited_in_answer, split_suggested_questions
+from ..citations import (
+    clean_citation_markers,
+    ensure_citation,
+    more_detail_line,
+    strip_more_detail_lines,
+    sources_cited_in_answer,
+    split_suggested_questions,
+)
 from ..conversation_log import log_interaction
 from ..markdown_tables import normalise_markdown_tables
 from ..rag import SourceRef, answer_question
@@ -86,6 +95,13 @@ class ChatService:
         k = int(top_k or cfg.RAG_TOP_K)
         if not text:
             return ChatResponse(answer="", sources=[], top_k=k)
+        pinned, needs_choice = codes.find_associations(text)
+        if needs_choice:
+            reply, suggestions = codes.clarification(needs_choice)
+            log_interaction(question=text, answer=reply, client=client)
+            return ChatResponse(
+                answer=reply, sources=[], top_k=k, suggested_questions=suggestions
+            )
         try:
             result = answer_question(
                 text,
@@ -94,6 +110,7 @@ class ChatService:
                 audience=audience,
                 formats=formats,
                 lang=lang,
+                pinned_chunk_ids=pinned,
             )
         except (FileNotFoundError, RuntimeError, DatabaseError) as exc:
             message_text = quota_message(exc) or str(exc)
@@ -105,8 +122,16 @@ class ChatService:
             return ChatResponse(answer=message_text, sources=[], top_k=k, error=message_text)
 
         answer, suggested = split_suggested_questions(result.answer)
-        answer = normalise_markdown_tables(answer)
+        answer = tidy_answer_format(normalise_markdown_tables(answer))
+        answer = clean_citation_markers(answer, len(result.sources))
+        for label in range(1, min(len(pinned), len(result.sources)) + 1):
+            # Each record the user named is excerpt [1], [2] and so on. Make sure it is cited.
+            answer = ensure_citation(answer, label)
+        answer = strip_more_detail_lines(answer)
         cited = sources_cited_in_answer(answer, result.sources)
+        closing = more_detail_line(cited)
+        if closing:
+            answer = f"{answer}\n\n{closing}"
         sources = [_to_source(source) for source in cited]
         log_interaction(
             question=text,

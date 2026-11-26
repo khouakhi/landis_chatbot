@@ -64,3 +64,79 @@ feedback:
   # Daily JSONL files (YYYY-MM-DD.jsonl). Relative to the code folder unless absolute.
   # On Render the disk is ephemeral: copy these files out, or mount a persistent disk.
   dir: logs/feedback
+
+structured_data:
+  # Used by pipeline/structured_records.py. Paths relative to the code folder unless absolute.
+  # The export folder is read only: the builder never writes to it.
+  export_dir: "../knowledge-base/03_Structured_data/landis_db/2026-11-25_export"
+  records_dir: "../knowledge-base/03_Structured_data/landis_db/records"
+  kb_id: "KB-103"
+  export_date: "2026-11-25"
+  ingest_date: "2026-11-25"
+  # Used only where the export has no source_url (soilscapes, WRB groups, classification).
+  fallback_source_url: "https://www.landis.org.uk/soilsguide/index.cfm"
+  # Units, labels and land-use names. Each one says where it comes from:
+  #   documented = stated in the LandIS documentation in knowledge-base/02_Source_cleaned
+  #                (KB-056 series hydrology, KB-057 agronomy, KB-061 horizon hydraulics)
+  #   unconfirmed = not stated anywhere in the corpus; LandIS must confirm
+  # Change a value here, then rebuild. An empty unit means no unit is written into the text.
+  vocabulary_status: "partly documented; see comments"
+  units:
+    depth: "cm"               # documented: KB-056, KB-061 (upper/lower depth, dgley, dimp_dp, drock)
+    awc: "mm"                 # inferred: KB-057 defines AWC as water to 1 m; crop AP fields are mm
+    area: "km2"               # unconfirmed: area_mapped, map_unit_area
+    percent: "%"              # unconfirmed: percent_cover, series_pc, map_unit_pc, coverage_*
+    sand_total: "%"           # unconfirmed (texture is %-based in LandIS, not stated in corpus)
+    silt: "%"                 # unconfirmed
+    clay: "%"                 # unconfirmed
+    oc: "%"                   # unconfirmed (organic carbon)
+    ph: ""                    # unconfirmed (pH is normally unitless)
+    bulk_density: "g/cm3"     # documented: KB-061 "Bulk density of fine earth (g/cm3)"
+    total_porosity: "%"       # documented: KB-061 "Total pore space (%) volume"
+    thv5: "% vol"             # documented: KB-061 "Volumetric water content (%)"
+    thv1500: "% vol"          # documented: KB-061
+    ksat_subvert: "cm/day"    # documented: KB-061 "Saturated hydraulic conductivity (sub-vertical) cm/day"
+  labels:                     # plain wording from the documentation where it exists
+    awc: "available water capacity"
+    dgley: "depth to gleying"
+    dimp_dp: "depth to slowly permeable layer"
+    drock: "depth to rock"
+    sand_total: "sand"
+    silt: "silt"
+    clay: "clay"
+    oc: "organic carbon"
+    ph: "pH"
+    bulk_density: "bulk density"
+    total_porosity: "total porosity"
+    thv5: "volumetric water content at 5 kPa (field capacity)"       # KB-061
+    thv1500: "volumetric water content at 1,500 kPa (wilting point)"  # KB-061
+    ksat_subvert: "saturated hydraulic conductivity (sub-vertical)"   # KB-061
+  lu_groups:                  # documented: KB-061 "AR (Arable) PG (Permanent Grass) LE (Ley Grassland) OT (Other)"
+    AR: "arable"
+    PG: "permanent grass"
+    LE: "ley grassland"
+    OT: "other land use"
+  # Values with a documented meaning. The text states the meaning instead of leaving the value out.
+  #   KB-056: DGLEY 999 implies NO gley layer; DIMP_DP 999 implies NO slowly permeable layer.
+  #   KB-061 and KB-069: LOWER_DEPTH 999 implies the depth was below the bottom of the profile.
+  documented_codes:
+    dgley:
+      "999": "no gley layer"
+    dimp_dp:
+      "999": "no slowly permeable layer"
+    lower_depth:
+      "999": "to the bottom of the profile"
+  # Codes treated as missing in measured fields (left out of the text, counted in the manifest).
+  #   999 for drock: not explained in the documentation, so it is left out until LandIS confirms.
+  #   -8 (and -8.0, -8.00): only on R (rock) horizons; not explained in the documentation.
+  # Applied only to measured fields, never to names or identifiers. Confirm with LandIS.
+  no_data_codes: ["999", "-8", "-8.0", "-8.00"]
+  # Counts the builder must reach, or it stops with an error.
+  expected_counts:
+    series: 753
+    series_horizons: 1551
+    associations: 298
+    non_soil_units: 1
+    classification: 246
+    soilscapes: 27
+    wrb: 25

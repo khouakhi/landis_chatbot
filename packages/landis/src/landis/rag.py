@@ -100,15 +100,27 @@ def system_prompt(
         "Answer only using the numbered context excerpts. If the context does not contain "
         "the answer, say that the corpus does not cover it. "
         "Cite the excerpts you actually use, with markers such as [1] or [2, 3] next to "
-        "the sentence they support. In the same sentence, name the document title, the "
+        "the sentence they support. Use only the excerpt numbers shown at the start of "
+        "each excerpt, and no more than two markers for one statement. Never put soil "
+        "series, association or map-unit codes, such as 541m, in square brackets. "
+        "In the same sentence, name the document title, the "
         "section, and the page when the context gives them. "
+        "Every sentence that states a fact ends with its [n] marker. When excerpts give "
+        "different figures for the same thing, give the figure from the LandIS definitive "
+        "source first, and say that another source gives a different figure. "
         "Prefer LandIS definitive sources. If a source is marked superseded, say so and "
         "give its publication year. "
         "Do not give site-specific advice about what soil is at a place, a postcode, or a "
         f"grid reference. Point the user to the portal map instead: {portal}. "
         "Do not interpret regulations, planning rules, or what a person is legally required to do. "
         "The source corpus is in English. "
+        "Do not write a link to the LandIS Soils Guide or a 'More detail' line. "
+        "The chat adds that line itself. "
         "Use Markdown: one ### heading, then bold **Section title:** lines, then bullets. "
+        "Use bold only for a section title on its own line, such as **Overview:**, and for "
+        "a component name on its own line. Never bold a bullet label, a sentence or a phrase "
+        "inside a sentence. "
+        "and never end a sentence with a colon. "
         "Do not use heading levels deeper than ###. "
         "When a table helps, use GitHub-flavoured Markdown with each row on its own line "
         "and a separator row. Never put a whole table on one line."
@@ -155,6 +167,9 @@ class SourceRef:
     authority_tier: str = ""
     superseded: bool = False
     publication_year: int | None = None
+    # Structured records only: the record's Soils Guide page and its title.
+    record_url: str | None = None
+    record_title: str | None = None
 
 
 @dataclass
@@ -162,6 +177,11 @@ class RAGResult:
     answer: str
     sources: list[SourceRef]
     top_k: int
+
+
+def _page_number(value) -> int:
+    """Return the stored page number. Missing means page 1; 0 means no page."""
+    return 1 if value is None else int(value)
 
 
 def looks_like_point_location(question: str) -> bool:
@@ -173,6 +193,30 @@ def looks_like_point_location(question: str) -> bool:
     return "what soil" in lowered and any(
         token in lowered for token in ("postcode", "grid reference", "this field", "my garden", "where i am")
     )
+
+
+_DEFINITION = re.compile(
+    r"^\s*(what\s+(is|are|'s)|define|definition\s+of|meaning\s+of|what\s+does\b.*\bmean)\b",
+    re.IGNORECASE,
+)
+
+
+def looks_like_definition(question: str) -> bool:
+    """True for a short 'what is X' or 'define X' question. Longer questions ask for facts."""
+    text = question or ""
+    return len(text.split()) <= 6 and bool(_DEFINITION.search(text))
+
+
+_COMPARISON = re.compile(
+    r"\b(compare|compares|compared|comparison|versus|vs\.?|difference between|"
+    r"differences between|differ|contrast)\b",
+    re.IGNORECASE,
+)
+
+
+def looks_like_comparison(question: str) -> bool:
+    """True for a question that compares two or more items."""
+    return bool(_COMPARISON.search(question or ""))
 
 
 def looks_like_regulatory(question: str) -> bool:
@@ -264,7 +308,12 @@ def _assistant_text(content) -> str:
     return "".join(parts)
 
 
-def retrieve(client, question: str, top_k: int) -> tuple[list[SourceRef], str]:
+def retrieve(
+    client,
+    question: str,
+    top_k: int,
+    pinned: Sequence[str] = (),
+) -> tuple[list[SourceRef], str]:
     if store_pg.count_chunks() == 0:
         raise FileNotFoundError(
             "No indexed passages yet. OCR the corpus, check the register, "
@@ -310,6 +359,10 @@ def retrieve(client, question: str, top_k: int) -> tuple[list[SourceRef], str]:
     else:
         chosen = usable[:top_k]
 
+    if pinned:
+        # A record the user named by its code always comes first, as excerpt [1].
+        chosen = list(pinned) + [chunk_id for chunk_id in chosen if chunk_id not in pinned]
+        chosen = chosen[: max(top_k, len(pinned))]
     rows = store_pg.fetch_chunks(chosen)
     sources: list[SourceRef] = []
     lines: list[str] = []
@@ -326,14 +379,17 @@ def retrieve(client, question: str, top_k: int) -> tuple[list[SourceRef], str]:
             source_path=str(row.get("source_path") or ""),
             title=(str(row.get("title") or "")).strip() or None,
             section=str(row.get("section") or ""),
-            location_start=int(row.get("page_start") or 1),
-            location_end=int(row.get("page_end") or 1),
+            # Structured database records store page 0: they have no pages to cite.
+            location_start=_page_number(row.get("page_start")),
+            location_end=_page_number(row.get("page_end")),
             preview=preview,
             public_url=public_url if is_public else None,
             is_public=is_public,
             authority_tier=str(row.get("authority_tier") or ""),
             superseded=bool(row.get("superseded")),
             publication_year=int(year) if year else None,
+            record_url=(str(row.get("source_url") or "")).strip() or None,
+            record_title=(str(row.get("source_title") or "")).strip() or None,
         )
         sources.append(source)
         bits = [source.title or source.doc_id]
@@ -341,7 +397,8 @@ def retrieve(client, question: str, top_k: int) -> tuple[list[SourceRef], str]:
             bits.append(str(source.publication_year))
         if source.section:
             bits.append(source.section)
-        bits.append(f"pages {source.location_start}–{source.location_end}")
+        if source.location_start:
+            bits.append(f"pages {source.location_start}–{source.location_end}")
         if source.authority_tier:
             bits.append(source.authority_tier)
         if source.superseded:
@@ -358,12 +415,13 @@ def answer_question(
     audience: str = "general",
     formats: Sequence[str] = (),
     lang: str = "en",
+    pinned_chunk_ids: Sequence[str] = (),
 ) -> RAGResult:
     k = int(top_k or cfg.RAG_TOP_K)
     client = emb.get_client()
     search = retrieval_query(user_message, history)
     # Retrieval uses the question only. Audience, format, and language affect the wording.
-    sources, context = retrieve(client, search, k)
+    sources, context = retrieve(client, search, k, pinned_chunk_ids)
     if not context:
         return RAGResult(
             answer=(
@@ -378,6 +436,33 @@ def answer_question(
         notes.append(
             "This is a point-location question. Do not name a soil for that place. "
             f"Direct the user to the portal map: {cfg.PORTAL_MAP_URL}."
+        )
+    count = len(pinned_chunk_ids)
+    if count == 1:
+        notes.append(
+            "The user named one association by its code. Excerpt [1] is the database "
+            "record for it. Answer from that record, cite [1], and do not add other "
+            "associations."
+        )
+    elif count > 1:
+        notes.append(
+            f"The user named {count} associations by their codes. Excerpts [1] to [{count}] "
+            "are the database records for them. Answer only from these records. Do not add "
+            "other associations. If a named association has no record, say so."
+        )
+    if looks_like_comparison(user_message):
+        notes.append(
+            "This is a comparison. Present the answer as a Markdown table with one row for "
+            "each item compared and a column for each aspect the user asks about. Cite the "
+            "record in each row. If a figure is not in the excerpts, write 'not in the "
+            "excerpts' in that cell rather than guessing. Add at most one sentence before "
+            "or after the table."
+        )
+    elif not pinned_chunk_ids and looks_like_definition(user_message):
+        notes.append(
+            "This is a definition question. Define the term from the definition sources "
+            "only, using one or two excerpts. Do not cite individual soil series or "
+            "association records as examples unless the user asks for one."
         )
     if looks_like_regulatory(user_message):
         notes.append(

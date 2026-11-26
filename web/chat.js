@@ -335,6 +335,10 @@ function toggleReadAloud(text, button) {
 }
 
 function formatLocation(source) {
+  // Structured database records have no page: show their section only.
+  if (!source.location_start) {
+    return source.section || "";
+  }
   const type = source.location_type || "page";
   const unit = type === "page" ? t("sources.pages") : `${type}s`;
   const span = `${unit} ${source.location_start}–${source.location_end}`;
@@ -344,7 +348,7 @@ function formatLocation(source) {
 function extractCitationLabels(inner) {
   const labels = new Set();
   for (const part of inner.split(/[,;]/)) {
-    const match = part.trim().match(/^(\d+)/);
+    const match = part.trim().match(/^(\d+)$/);
     if (match) {
       labels.add(Number(match[1]));
     }
@@ -353,7 +357,10 @@ function extractCitationLabels(inner) {
 }
 
 function renderCitationBadges(inner, sources) {
-  const labels = extractCitationLabels(inner);
+  // Only show a badge for an excerpt that exists. Codes such as 541m are not citations.
+  const labels = extractCitationLabels(inner).filter((label) =>
+    sources.some((item) => item.label === label),
+  );
   if (labels.length === 0) {
     return null;
   }
@@ -384,14 +391,10 @@ function formatListItem(line, sources) {
   }
 
   // Inline "label: detail" inside a bullet — keep as one list item
+  // Bullet labels are plain text, so bullets with and without labels look the same.
   const colonSplit = content.match(/^\*\*([^*]+)\*\*:\s+(.+)$/);
   if (colonSplit) {
-    return `<strong>${formatInline(colonSplit[1].trim(), sources, true)}:</strong> ${formatInline(colonSplit[2].trim(), sources, true)}`;
-  }
-
-  const titled = content.match(/^(.{1,90}?)\s*[-–—]\s+(.+)$/);
-  if (titled) {
-    return `<strong>${formatInline(titled[1].trim(), sources, true)}</strong> ${formatInline(titled[2].trim(), sources, true)}`;
+    return `${formatInline(colonSplit[1].trim(), sources, true)}: ${formatInline(colonSplit[2].trim(), sources, true)}`;
   }
 
   return formatInline(content, sources, true);
@@ -497,72 +500,9 @@ function isSectionSubtitleLine(line, nextLine, prevLine) {
 
   const content = stripMarkdownHeading(stripBulletPrefix(trimmed)).trim();
 
-  if (/^\*\*[^*]+\*\*:?\s*$/.test(content)) {
-    return true;
-  }
-  if (/^[^:*]{2,90}:\s*$/.test(content.replace(/\*\*/g, ""))) {
-    return true;
-  }
-
-  // Detail bullets keep citations or inline bold+explanation
-  if (/\[[0-9]/.test(content)) {
-    return false;
-  }
-  if (/\*\*[^*]+\*\*\s+\S/.test(content)) {
-    return false;
-  }
-
-  const plain = plainListText(trimmed);
-  const wordCount = plain.split(/\s+/).filter(Boolean).length;
-  const isShortHeading =
-    /^[-*]\s+/.test(trimmed) &&
-    plain.length > 0 &&
-    plain.length <= 70 &&
-    wordCount <= 10 &&
-    !/[.!?]$/.test(plain);
-
-  if (!isShortHeading) {
-    return false;
-  }
-
-  // Imperative detail lines without a trailing period
-  if (
-    /^(Apply|Assemble|Use|Show|Describe|Highlight|Diversify|Ensure|Include|Provide|Create|Develop|Deploy|Follow the|Plan for)\b/i.test(
-      plain
-    ) &&
-    wordCount >= 5
-  ) {
-    return false;
-  }
-
-  const nextIsBullet = nextLine && /^[-*]\s+/.test(nextLine.trim());
-  const nextPlain = nextLine ? plainListText(nextLine) : "";
-  const nextIsLongDetail =
-    nextIsBullet && (nextPlain.length > plain.length + 15 || /[.!?]/.test(nextPlain) || /\[[0-9]/.test(nextLine));
-  const nextIsShortHeading =
-    nextIsBullet &&
-    nextPlain.length > 0 &&
-    nextPlain.length <= 70 &&
-    nextPlain.split(/\s+/).filter(Boolean).length <= 10 &&
-    !/[.!?]$/.test(nextPlain) &&
-    !/\[[0-9]/.test(nextLine || "");
-  const prevPlain = prevLine ? plainListText(prevLine) : "";
-  const prevIsLongDetail =
-    prevLine &&
-    /^[-*]\s+/.test(prevLine.trim()) &&
-    (prevPlain.length > 80 || /[.!?]/.test(prevPlain) || /\[[0-9]/.test(prevLine));
-
-  if (!prevLine && nextIsBullet) {
-    return true;
-  }
-  if (nextIsLongDetail || nextIsShortHeading) {
-    return true;
-  }
-  if (prevIsLongDetail && nextIsLongDetail) {
-    return true;
-  }
-
-  return false;
+  // Only a title the model wrote in bold on its own line is a subtitle. A plain
+  // line that happens to end with a colon is ordinary text.
+  return /^\*\*[^*]+\*\*:?\s*$/.test(content);
 }
 
 function subtitleLabel(line) {
@@ -628,10 +568,7 @@ function formatStructuredListBlock(lines, sources) {
 
     closeList();
     const lone = line.trim();
-    if (
-      /^\*\*[^*]+\*\*:?\s*$/.test(lone) ||
-      /^[^:*]{2,90}:\s*$/.test(lone.replace(/\*\*/g, ""))
-    ) {
+    if (/^\*\*[^*]+\*\*:?\s*$/.test(lone)) {
       html += formatSubtitle(line, sources);
     } else {
       html += `<p class="answer-paragraph">${formatInline(stripMarkdownHeading(line), sources, true)}</p>`;
@@ -874,11 +811,7 @@ function formatAssistantContent(text, sources) {
       continue;
     }
 
-    if (
-      lines.length === 1 &&
-      ( /^\*\*[^*]+\*\*:?\s*$/.test(lines[0]) ||
-        /^[^:*]{2,90}:\s*$/.test(lines[0].replace(/\*\*/g, "")) )
-    ) {
+    if (lines.length === 1 && /^\*\*[^*]+\*\*:?\s*$/.test(lines[0].trim())) {
       htmlParts.push(formatSubtitle(lines[0], sources));
       continue;
     }

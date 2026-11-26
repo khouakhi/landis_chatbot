@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -129,13 +130,14 @@ def replace_document(document: dict[str, Any], chunk_rows: list[dict[str, Any]])
                 INSERT INTO chunks (
                     chunk_id, doc_id, source_path, source_hash, chunk_index, section,
                     text, table_html, entity_codes, page_start, page_end,
-                    printed_page_start, printed_page_end, has_table, embedding
+                    printed_page_start, printed_page_end, has_table, embedding,
+                    source_url, source_title
                 ) VALUES (
                     %(chunk_id)s, %(doc_id)s, %(source_path)s, %(source_hash)s,
                     %(chunk_index)s, %(section)s, %(text)s, %(table_html)s,
                     %(entity_codes)s, %(page_start)s, %(page_end)s,
                     %(printed_page_start)s, %(printed_page_end)s, %(has_table)s,
-                    %(embedding)s
+                    %(embedding)s, %(source_url)s, %(source_title)s
                 )
                 """,
                 chunk_rows,
@@ -184,8 +186,33 @@ def search_similar(query_vector: np.ndarray, fetch_k: int) -> list[dict[str, Any
     return hits
 
 
+_QUESTION_WORDS = frozenset(
+    """a an the of in on for to and or is are was were be been do does did what which
+    how many much tell me about its their it this that these those with by from as at
+    there define defines give show explain can could would should please""".split()
+)
+
+
+def keyword_query(text: str) -> str:
+    """Build an OR query from the content words of a question.
+
+    Plain full-text search needs every word to match, so a question such as
+    "how many units do Soilscapes define" finds nothing when the passage lacks
+    "how" or "many". Joining the content words with OR lets any passage with the
+    key terms match, and ranking still puts the passages with most terms first.
+    """
+    words = []
+    for word in re.findall(r"[a-z0-9]+", (text or "").lower()):
+        if len(word) > 2 and word not in _QUESTION_WORDS and word not in words:
+            words.append(word)
+    return " | ".join(words)
+
+
 def search_keywords(query: str, fetch_k: int) -> list[dict[str, Any]]:
     """Postgres full-text search over passage text, section, and entity codes."""
+    terms = keyword_query(query)
+    if not terms:
+        return []
     cur = get_connection().execute(
         """
         SELECT
@@ -193,14 +220,14 @@ def search_keywords(query: str, fetch_k: int) -> list[dict[str, Any]]:
             c.entity_codes,
             d.authority_tier,
             d.superseded,
-            ts_rank_cd(c.search_vector, plainto_tsquery('english', %s)) AS rank
+            ts_rank_cd(c.search_vector, to_tsquery('english', %s)) AS rank
         FROM chunks AS c
         JOIN documents AS d ON d.doc_id = c.doc_id
-        WHERE c.search_vector @@ plainto_tsquery('english', %s)
+        WHERE c.search_vector @@ to_tsquery('english', %s)
         ORDER BY rank DESC
         LIMIT %s
         """,
-        (query, query, int(fetch_k)),
+        (terms, terms, int(fetch_k)),
     )
     return [
         {
@@ -224,6 +251,16 @@ def fetch_embeddings(chunk_ids: list[str]) -> dict[str, np.ndarray]:
     return {str(row["chunk_id"]): _vector(row["embedding"]) for row in cur.fetchall()}
 
 
+def fetch_chunk_heads(chunk_id_prefix: str, length: int = 160) -> list[dict[str, Any]]:
+    """The first characters of every chunk whose ID starts with the prefix."""
+    cur = get_connection().execute(
+        "SELECT chunk_id, left(text, %s) AS head FROM chunks "
+        "WHERE chunk_id LIKE %s ORDER BY chunk_id",
+        (length, chunk_id_prefix + "%"),
+    )
+    return [dict(row) for row in cur.fetchall()]
+
+
 def fetch_chunks(chunk_ids: list[str]) -> list[dict[str, Any]]:
     if not chunk_ids:
         return []
@@ -232,7 +269,7 @@ def fetch_chunks(chunk_ids: list[str]) -> list[dict[str, Any]]:
         SELECT
             c.chunk_id, c.doc_id, c.source_path, c.section, c.text, c.entity_codes,
             c.page_start, c.page_end, c.printed_page_start, c.printed_page_end,
-            c.has_table,
+            c.has_table, c.source_url, c.source_title,
             d.title, d.public_url, d.is_public, d.authority_tier, d.superseded,
             d.publication_year, d.licence
         FROM chunks AS c
